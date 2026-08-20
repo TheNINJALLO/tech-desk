@@ -1,22 +1,399 @@
-name: CI
+name: Kingdom Tech Desk - Mobile Upload and CI
+
+run-name: Kingdom Tech Desk ${{ github.event_name }} by @${{ github.actor }}
 
 on:
+  workflow_dispatch:
+    inputs:
+      archive:
+        description: "ZIP filename in the repository root. Leave blank to use the newest kingdom-tech-desk-v*.zip"
+        required: false
+        default: ""
+        type: string
+      delete_archive:
+        description: "Delete the uploaded ZIP after a successful import"
+        required: true
+        default: true
+        type: boolean
   push:
+    paths:
+      - "kingdom-tech-desk-v*.zip"
+      - "kingdom_tech_desk/**"
+      - "tests/**"
+      - "scripts/**"
+      - "pterodactyl/**"
+      - "requirements*.txt"
+      - "pyproject.toml"
+      - "Dockerfile"
+      - ".github/workflows/ci.yml"
   pull_request:
+    paths:
+      - "kingdom_tech_desk/**"
+      - "tests/**"
+      - "scripts/**"
+      - "pterodactyl/**"
+      - "requirements*.txt"
+      - "pyproject.toml"
+      - "Dockerfile"
+      - ".github/workflows/ci.yml"
+
+concurrency:
+  group: kingdom-tech-desk-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
-  test:
+  mobile-import:
+    name: Import uploaded ZIP
+    if: github.event_name != 'pull_request' && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out the selected branch
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref_name }}
+
+      - name: Locate the uploaded release ZIP
+        id: archive
+        env:
+          REQUESTED_ARCHIVE: ${{ inputs.archive }}
+          DELETE_ARCHIVE_INPUT: ${{ inputs.delete_archive }}
+        run: |
+          set -euo pipefail
+
+          requested="${REQUESTED_ARCHIVE:-}"
+          archive=""
+
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && -n "${requested}" ]]; then
+            archive="${requested}"
+          else
+            archive="$({
+              find . -maxdepth 1 -type f -name 'kingdom-tech-desk-v*.zip' \
+                -printf '%T@ %f\n' 2>/dev/null || true
+            } | sort -rn | sed -n '1s/^[^ ]* //p')"
+          fi
+
+          if [[ -z "${archive}" ]]; then
+            if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+              echo "::error::No Kingdom Tech Desk ZIP was found in the repository root. Upload the ZIP first, then run this workflow again."
+              exit 1
+            fi
+
+            echo "No release ZIP is present. This was a normal source-code push, so the import job has nothing to do."
+            echo "found=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          if [[ "${archive}" == */* || "${archive}" == *\\* ]]; then
+            echo "::error::The archive input must be a filename in the repository root, not a path."
+            exit 1
+          fi
+
+          if [[ ! "${archive}" =~ ^kingdom-tech-desk-v[0-9A-Za-z._-]+\.zip$ ]]; then
+            echo "::error::Unexpected archive name: ${archive}. Expected kingdom-tech-desk-vVERSION.zip"
+            exit 1
+          fi
+
+          if [[ ! -f "${archive}" ]]; then
+            echo "::error::Archive not found: ${archive}"
+            exit 1
+          fi
+
+          size_bytes="$(stat -c '%s' "${archive}")"
+          if (( size_bytes > 104857600 )); then
+            echo "::error::The ZIP is larger than the 100 MiB safety limit."
+            exit 1
+          fi
+
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            delete_archive="${DELETE_ARCHIVE_INPUT:-true}"
+          else
+            delete_archive="true"
+          fi
+
+          echo "Using archive: ${archive}"
+          sha256sum "${archive}"
+          echo "found=true" >> "${GITHUB_OUTPUT}"
+          echo "path=${archive}" >> "${GITHUB_OUTPUT}"
+          echo "delete=${delete_archive}" >> "${GITHUB_OUTPUT}"
+
+      - name: Safely extract and stage the project
+        if: steps.archive.outputs.found == 'true'
+        env:
+          ARCHIVE: ${{ steps.archive.outputs.path }}
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          from __future__ import annotations
+
+          import os
+          import shutil
+          import stat
+          import zipfile
+          from pathlib import Path, PurePosixPath
+
+          archive = Path(os.environ["ARCHIVE"])
+          stage = Path(".mobile-import-stage")
+          max_files = 5_000
+          max_uncompressed = 250 * 1024 * 1024
+
+          if stage.exists():
+              shutil.rmtree(stage)
+          stage.mkdir()
+          stage_root = stage.resolve()
+
+          with zipfile.ZipFile(archive) as package:
+              members = package.infolist()
+              files = [member for member in members if not member.is_dir()]
+
+              if not files:
+                  raise SystemExit("The uploaded ZIP is empty.")
+              if len(files) > max_files:
+                  raise SystemExit(f"The ZIP contains too many files: {len(files)} > {max_files}.")
+
+              total_size = sum(member.file_size for member in files)
+              if total_size > max_uncompressed:
+                  raise SystemExit(
+                      f"The ZIP expands beyond the 250 MiB safety limit: {total_size} bytes."
+                  )
+
+              seen: set[Path] = set()
+              for member in members:
+                  raw_name = member.filename.replace("\\", "/")
+                  relative = PurePosixPath(raw_name)
+
+                  if not relative.parts or relative.is_absolute() or ".." in relative.parts:
+                      raise SystemExit(f"Unsafe ZIP path rejected: {member.filename!r}")
+                  if relative.parts[0] == "__MACOSX":
+                      continue
+
+                  unix_mode = member.external_attr >> 16
+                  if unix_mode and stat.S_ISLNK(unix_mode):
+                      raise SystemExit(f"Symbolic links are not accepted: {member.filename!r}")
+
+                  destination = stage.joinpath(*relative.parts)
+                  resolved = destination.resolve()
+                  if resolved != stage_root and stage_root not in resolved.parents:
+                      raise SystemExit(f"ZIP path escaped the staging directory: {member.filename!r}")
+
+                  if member.is_dir():
+                      destination.mkdir(parents=True, exist_ok=True)
+                      continue
+
+                  if destination in seen:
+                      raise SystemExit(f"Duplicate ZIP entry rejected: {member.filename!r}")
+                  seen.add(destination)
+
+                  destination.parent.mkdir(parents=True, exist_ok=True)
+                  with package.open(member) as source, destination.open("wb") as target:
+                      shutil.copyfileobj(source, target, length=1024 * 1024)
+
+                  permissions = unix_mode & 0o777
+                  if permissions:
+                      destination.chmod(permissions)
+
+          top_level = [entry for entry in stage.iterdir() if entry.name != "__MACOSX"]
+          source = top_level[0] if len(top_level) == 1 and top_level[0].is_dir() else stage
+
+          required = (
+              "pyproject.toml",
+              "requirements.txt",
+              "requirements-dev.txt",
+              "kingdom_tech_desk/__main__.py",
+              "tests/test_validation.py",
+              "pterodactyl/egg-kingdom-tech-desk.json",
+          )
+          missing = [name for name in required if not (source / name).is_file()]
+          if missing:
+              raise SystemExit("The ZIP is not a complete Kingdom Tech Desk release. Missing: " + ", ".join(missing))
+
+          # The bootstrap workflow remains the single workflow used by the repository.
+          # Excluding bundled workflows also avoids an automated token trying to rewrite
+          # workflow files during the import commit.
+          shutil.rmtree(source / ".github" / "workflows", ignore_errors=True)
+          Path(".mobile-import-source").write_text(str(source), encoding="utf-8")
+          PY
+
+          source="$(cat .mobile-import-source)"
+
+          # Remove only known generated project paths. User secrets and runtime data such
+          # as .env, config.yaml, data/, logs/, and databases are deliberately untouched.
+          rm -rf kingdom_tech_desk tests scripts pterodactyl dist
+          rm -f \
+            README.md BUILD_REPORT.md LICENSE Dockerfile \
+            config.example.yaml .env.example .dockerignore .gitignore \
+            requirements.txt requirements-dev.txt pyproject.toml SHA256SUMS
+
+          cp -a "${source}/." ./
+          rm -rf .mobile-import-stage .mobile-import-source
+
+          test -f pyproject.toml
+          test -f kingdom_tech_desk/__main__.py
+          test -f pterodactyl/egg-kingdom-tech-desk.json
+
+      - name: Set up Python 3.12
+        if: steps.archive.outputs.found == 'true'
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Validate on Python 3.12
+        if: steps.archive.outputs.found == 'true'
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+          ruff check .
+          python -m compileall -q kingdom_tech_desk
+          pytest -q
+          python -m json.tool pterodactyl/egg-kingdom-tech-desk.json >/dev/null
+
+      - name: Set up Python 3.13
+        if: steps.archive.outputs.found == 'true'
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Validate on Python 3.13
+        if: steps.archive.outputs.found == 'true'
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+          python -m compileall -q kingdom_tech_desk
+          pytest -q
+
+      - name: Commit the imported project
+        if: steps.archive.outputs.found == 'true'
+        env:
+          ARCHIVE: ${{ steps.archive.outputs.path }}
+          DELETE_ARCHIVE: ${{ steps.archive.outputs.delete }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${DELETE_ARCHIVE}" == "true" ]]; then
+            rm -f -- "${ARCHIVE}"
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "Nothing changed after extraction."
+            exit 0
+          fi
+
+          version="$(python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+          print(data["project"]["version"])
+          PY
+          )"
+
+          git commit -m "Import Kingdom Tech Desk v${version} from mobile upload"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+          {
+            echo "### ✅ Kingdom Tech Desk imported"
+            echo
+            echo "- Version: \`${version}\`"
+            echo "- Source archive: \`${ARCHIVE}\`"
+            echo "- Python 3.12: passed"
+            echo "- Python 3.13: passed"
+            echo "- Ruff: passed"
+            echo "- Pterodactyl egg JSON: passed"
+            echo "- Branch: \`${GITHUB_REF_NAME}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  ci:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.12", "3.13"]
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Check out the repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+
+      - name: Detect a fully imported project
+        id: project
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+
+          zip_changed=false
+          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            if [[ -n "${BEFORE_SHA:-}" && ! "${BEFORE_SHA}" =~ ^0+$ ]]; then
+              changed_files="$(git diff --name-only "${BEFORE_SHA}" "${GITHUB_SHA}")"
+            else
+              changed_files="$(git show --pretty='' --name-only "${GITHUB_SHA}")"
+            fi
+
+            if grep -Eq '^kingdom-tech-desk-v[^/]*\.zip$' <<< "${changed_files}"; then
+              zip_changed=true
+            fi
+          fi
+
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" || "${zip_changed}" == "true" ]]; then
+            echo "present=false" >> "${GITHUB_OUTPUT}"
+            echo "The mobile import job validates the uploaded release, so the regular CI matrix is skipped for this run."
+          elif [[ -f pyproject.toml && -f requirements-dev.txt && -d kingdom_tech_desk ]]; then
+            echo "present=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "present=false" >> "${GITHUB_OUTPUT}"
+            echo "The project has not been extracted yet. Upload the release ZIP or run the mobile import job."
+          fi
+
+      - name: Set up Python ${{ matrix.python-version }}
+        if: steps.project.outputs.present == 'true'
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
-      - run: python -m pip install --upgrade pip
-      - run: pip install -r requirements-dev.txt
-      - run: ruff check .
-      - run: python -m compileall -q kingdom_tech_desk
-      - run: pytest -q
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install development dependencies
+        if: steps.project.outputs.present == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Run Ruff
+        if: steps.project.outputs.present == 'true'
+        run: ruff check .
+
+      - name: Compile the package
+        if: steps.project.outputs.present == 'true'
+        run: python -m compileall -q kingdom_tech_desk
+
+      - name: Run tests
+        if: steps.project.outputs.present == 'true'
+        run: pytest -q
+
+      - name: Validate the Pterodactyl egg
+        if: steps.project.outputs.present == 'true'
+        run: python -m json.tool pterodactyl/egg-kingdom-tech-desk.json >/dev/null
