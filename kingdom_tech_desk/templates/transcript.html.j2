@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ display_id }} transcript</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; }
+    body { margin: 0; background: #10141d; color: #e7ebf3; }
+    main { max-width: 1050px; margin: 0 auto; padding: 32px 20px 80px; }
+    header, section { background: #171d29; border: 1px solid #2a3446; border-radius: 14px; padding: 20px; margin-bottom: 16px; }
+    h1, h2 { margin-top: 0; }
+    .meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+    .meta div, .field { background: #111721; border-radius: 9px; padding: 10px 12px; }
+    .label { color: #9eabc0; font-size: .82rem; text-transform: uppercase; letter-spacing: .06em; }
+    .message { border-left: 3px solid #5865f2; padding: 10px 14px; margin: 12px 0; background: #111721; border-radius: 0 10px 10px 0; }
+    .message-head { color: #aeb9ca; font-size: .9rem; margin-bottom: 7px; }
+    .content { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .attachment { margin-top: 5px; color: #8cc8ff; }
+    .event { font-family: ui-monospace, monospace; font-size: .88rem; border-bottom: 1px solid #273043; padding: 7px 0; }
+    .empty { color: #929eb1; font-style: italic; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>{{ display_id }} · {{ ticket.data.title }}</h1>
+    <div class="meta">
+      <div><span class="label">Status</span><br>{{ ticket.status }}</div>
+      <div><span class="label">Severity</span><br>{{ ticket.severity }}</div>
+      <div><span class="label">Reporter ID</span><br>{{ ticket.reporter_id }}</div>
+      <div><span class="label">Created</span><br>{{ ticket.created_at }}</div>
+      <div><span class="label">Closed</span><br>{{ ticket.closed_at or "Not closed" }}</div>
+      <div><span class="label">Channel ID</span><br>{{ ticket.channel_id or "Deleted" }}</div>
+    </div>
+  </header>
+
+  <section>
+    <h2>Structured intake</h2>
+    {% for key, value in ticket.data.items() %}
+      <div class="field"><span class="label">{{ key.replace('_', ' ') }}</span><div class="content">{% if value is sequence and value is not string %}{{ value | join(', ') }}{% else %}{{ value }}{% endif %}</div></div>
+    {% endfor %}
+  </section>
+
+  <section>
+    <h2>Conversation</h2>
+    {% if messages %}
+      {% for message in messages %}
+        <article class="message">
+          <div class="message-head">{{ message.author_name }} · {{ message.author_id }} · {{ message.created_at }}</div>
+          <div class="content">{{ message.content or "[No text content]" }}</div>
+          {% for attachment in message.attachments %}
+            <div class="attachment">Attachment: {{ attachment.filename }} ({{ attachment.size }} bytes, {{ attachment.content_type or "unknown type" }})</div>
+          {% endfor %}
+        </article>
+      {% endfor %}
+    {% else %}
+      <p class="empty">No conversation messages were available.</p>
+    {% endif %}
+  </section>
+
+  <section>
+    <h2>Event timeline</h2>
+    {% for event in events %}
+      <div class="event">{{ event.created_at }} · {{ event.event_type }} · actor={{ event.actor_id }} · {{ event.payload }}</div>
+    {% endfor %}
+  </section>
+</main>
+</body>
+</html>

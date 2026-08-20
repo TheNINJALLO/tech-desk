@@ -1,0 +1,92 @@
+{
+  "_comment": "DO NOT EDIT: FILE GENERATED FOR PTERODACTYL PANEL IMPORT",
+  "meta": {
+    "version": "PTDL_v2",
+    "update_url": null
+  },
+  "exported_at": "2026-08-20T12:00:00+00:00",
+  "name": "Kingdom Tech Desk",
+  "author": "TheN1NJ4LL0",
+  "description": "A guided Discord technical-support ticket bot with validated multi-stage reports, persistent drafts, private ticket channels, evidence handling, known issues, incidents, and transcripts.",
+  "features": null,
+  "docker_images": {
+    "Python 3.12": "ghcr.io/parkervcp/yolks:python_3.12"
+  },
+  "file_denylist": [],
+  "startup": "bash scripts/start.sh",
+  "config": {
+    "files": "{}",
+    "startup": "{\"done\": \"Logged in as\", \"userInteraction\": []}",
+    "logs": "{}",
+    "stop": "SIGTERM"
+  },
+  "scripts": {
+    "installation": {
+      "script": "#!/bin/bash\nset -e\napt-get update\napt-get install -y --no-install-recommends git ca-certificates rsync\nmkdir -p /mnt/server\ncd /mnt/server\nif [ -n \"${GIT_REPO}\" ]; then\n  rm -rf /tmp/ktd-source\n  git clone --depth 1 --branch \"${GIT_BRANCH}\" \"${GIT_REPO}\" /tmp/ktd-source\n  rsync -a --delete --exclude data --exclude logs --exclude config.yaml --exclude .env --exclude .venv /tmp/ktd-source/ /mnt/server/\nfi\nmkdir -p data/evidence data/transcripts data/backups logs\nif [ ! -f config.yaml ] && [ -f config.example.yaml ]; then cp config.example.yaml config.yaml; fi\nchmod +x scripts/start.sh scripts/update.sh 2>/dev/null || true\necho \"Kingdom Tech Desk installation files prepared. Dependencies install on first Python 3.12 startup.\"",
+      "container": "ghcr.io/pterodactyl/installers:debian",
+      "entrypoint": "bash"
+    }
+  },
+  "variables": [
+    {
+      "name": "Discord Bot Token",
+      "description": "Token from the Discord Developer Portal. Keep this secret.",
+      "env_variable": "DISCORD_TOKEN",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|min:20",
+      "field_type": "password"
+    },
+    {
+      "name": "Owner Discord User IDs",
+      "description": "Optional comma-separated user IDs that receive owner-level bot access.",
+      "env_variable": "KTD_OWNER_IDS",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:500",
+      "field_type": "text"
+    },
+    {
+      "name": "Configuration Path",
+      "description": "Path to the YAML configuration file.",
+      "env_variable": "KTD_CONFIG",
+      "default_value": "/home/container/config.yaml",
+      "user_viewable": true,
+      "user_editable": false,
+      "rules": "required|string|max:200",
+      "field_type": "text"
+    },
+    {
+      "name": "Git Repository",
+      "description": "Repository used during install/update. Leave blank when uploading the release ZIP manually.",
+      "env_variable": "GIT_REPO",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:300",
+      "field_type": "text"
+    },
+    {
+      "name": "Git Branch",
+      "description": "Branch installed from the configured repository.",
+      "env_variable": "GIT_BRANCH",
+      "default_value": "main",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|max:100",
+      "field_type": "text"
+    },
+    {
+      "name": "Development Guild ID",
+      "description": "Optional Discord guild ID for immediate command sync while testing. Leave blank for global sync.",
+      "env_variable": "KTD_DEV_GUILD_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:30",
+      "field_type": "text"
+    }
+  ]
+}

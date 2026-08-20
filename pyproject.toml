@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kingdom-tech-desk"
+version = "1.0.0"
+description = "A guided Discord technical-support ticket system for Minecraft Bedrock communities."
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+authors = [{name = "TheN1NJ4LL0"}]
+dependencies = [
+  "discord.py==2.7.1",
+  "aiosqlite==0.22.1",
+  "aiohttp>=3.11,<4",
+  "Jinja2>=3.1,<4",
+  "PyYAML>=6,<7",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<10",
+  "pytest-asyncio>=0.24,<2",
+  "ruff>=0.9,<1",
+  "mypy>=1.13,<2",
+]
+
+[project.scripts]
+kingdom-tech-desk = "kingdom_tech_desk.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["kingdom_tech_desk*"]
+
+[tool.setuptools.package-data]
+kingdom_tech_desk = ["templates/*.j2"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_configs = true
+warn_return_any = true
+no_implicit_optional = true
+check_untyped_defs = true
+ignore_missing_imports = true

@@ -1,0 +1,60 @@
+bot:
+  name: "Kingdom Tech Desk"
+  command_prefix: "!ktd"
+  status_text: "Technical reports"
+  sync_commands_on_start: true
+  development_guild_id: null
+
+storage:
+  database_path: "data/kingdom_tech_desk.db"
+  evidence_dir: "data/evidence"
+  transcript_dir: "data/transcripts"
+  backup_dir: "data/backups"
+  log_dir: "logs"
+  backup_retention: 14
+
+limits:
+  draft_expiry_hours: 24
+  max_open_tickets_per_member: 3
+  max_evidence_files: 3
+  automatic_evidence_bytes: 20971520
+  failed_attempt_window_seconds: 600
+  failed_attempt_limit: 8
+  similar_ticket_window_minutes: 30
+  possible_incident_threshold: 3
+
+lifecycle:
+  first_waiting_reminder_hours: 24
+  second_waiting_reminder_hours: 48
+  auto_close_waiting_hours: 72
+  closed_channel_retention_hours: 72
+
+validation:
+  minimum_combined_words: 45
+  vague_phrases:
+    - "doesn't work"
+    - "does not work"
+    - "not working"
+    - "broken"
+    - "fix it"
+    - "help"
+    - "nothing"
+    - "it kicked me"
+    - "got kicked"
+    - "it crashed"
+    - "watch the video"
+    - "watch this"
+    - "idk"
+    - "i don't know"
+    - "no idea"
+    - "same as above"
+    - "same"
+    - "bugged"
+
+server_context:
+  enabled: false
+  base_url: "http://127.0.0.1:8080"
+  authentication_token: ""
+  timeout_seconds: 3
+  verify_tls: true
+  server_mapping: {}
