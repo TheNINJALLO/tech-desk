@@ -1,4 +1,4 @@
-# Kingdom Tech Desk v1.0.0 Build Report
+# Kingdom Tech Desk v1.0.1 Build Report
 
 Build date: 2026-08-20
 
@@ -17,6 +17,16 @@ Build date: 2026-08-20
 - Optional non-blocking OniLink server-context adapter contract
 - Local, Docker, and Pterodactyl deployment files
 - Python wheel and complete source archive
+
+## CI repair in v1.0.1
+
+- Corrected all 19 Ruff findings reported by GitHub Actions
+- Removed unused imports and local variables
+- Updated collection ABC imports for Python 3.12+
+- Corrected import ordering in source and tests
+- Replaced silent try/except cleanup blocks with `contextlib.suppress`
+- Pinned Ruff to `0.16.3` for reproducible CI results
+- Updated the workflow to Node 24-based action generations and disabled matrix fail-fast
 
 ## Verification completed
 

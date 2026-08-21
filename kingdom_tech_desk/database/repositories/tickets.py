@@ -13,7 +13,6 @@ from kingdom_tech_desk.models.core import (
     TicketStatus,
 )
 
-
 OPEN_STATUSES = {
     TicketStatus.OPEN,
     TicketStatus.CLAIMED,

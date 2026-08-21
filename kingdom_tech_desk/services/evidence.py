@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -153,8 +154,6 @@ class EvidenceService:
                 except OSError:
                     LOGGER.warning("Could not delete evidence file %s", record.path)
         draft_dir = safe_child_path(self.root, str(draft_id))
-        try:
+        with suppress(OSError):
             draft_dir.rmdir()
-        except OSError:
-            pass
         await self.repository.delete_evidence_rows(draft_id)

@@ -44,7 +44,6 @@ class GuildConfigRepository:
         )
 
     async def update(self, config: GuildConfig) -> GuildConfig:
-        data = asdict(config)
         await self.database.execute(
             """
             INSERT INTO guild_config(

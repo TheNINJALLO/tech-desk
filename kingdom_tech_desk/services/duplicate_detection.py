@@ -54,7 +54,6 @@ class DuplicateDetectionService:
         window_minutes: int,
         threshold: float = 0.34,
     ) -> list[DuplicateMatch]:
-        title = str(data.get("title", ""))
         category = str(data.get("category", ""))
         platform = str(data.get("platform", ""))
         corpus = " ".join(

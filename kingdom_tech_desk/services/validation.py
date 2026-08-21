@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Iterable
 from difflib import SequenceMatcher
-from typing import Any, Iterable
+from typing import Any
 
 from kingdom_tech_desk.constants import DEFAULT_VAGUE_PHRASES, FIELD_STAGES
 from kingdom_tech_desk.models.core import DraftStage, ValidationIssue, ValidationResult

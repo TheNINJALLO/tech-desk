@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+from contextlib import suppress
 from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING
 
@@ -34,10 +35,8 @@ class MaintenanceService:
         self._stopping.set()
         if self._task is not None:
             self._task.cancel()
-            try:
+            with suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
             self._task = None
 
     async def _loop(self) -> None:

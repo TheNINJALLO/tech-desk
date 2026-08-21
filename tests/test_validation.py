@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from kingdom_tech_desk.services.validation import ValidationService
-
 from conftest import complete_report
+
+from kingdom_tech_desk.services.validation import ValidationService
 
 
 def codes(result):

@@ -5,7 +5,14 @@ from pathlib import Path
 from typing import Any
 
 from kingdom_tech_desk.database.connection import Database
-from kingdom_tech_desk.database.repositories.common import dump_json, iso, load_json, parse_dt, public_id, utcnow
+from kingdom_tech_desk.database.repositories.common import (
+    dump_json,
+    iso,
+    load_json,
+    parse_dt,
+    public_id,
+    utcnow,
+)
 from kingdom_tech_desk.models.core import DraftRecord, DraftStage, DraftStatus, EvidenceRecord
 
 

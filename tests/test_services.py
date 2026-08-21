@@ -6,16 +6,15 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from conftest import complete_report
 
-from kingdom_tech_desk.database.repositories import DraftRepository, KnownIssueRepository, TicketRepository
-from kingdom_tech_desk.models.core import DraftStage, Severity, TicketRecord, TicketStatus
+from kingdom_tech_desk.database.repositories import KnownIssueRepository, TicketRepository
+from kingdom_tech_desk.models.core import Severity, TicketRecord, TicketStatus
 from kingdom_tech_desk.services.duplicate_detection import DuplicateDetectionService
 from kingdom_tech_desk.services.rate_limits import RateLimitService
 from kingdom_tech_desk.services.server_context import DisabledServerContextProvider
 from kingdom_tech_desk.services.severity import SeverityService
 from kingdom_tech_desk.services.transcripts import TranscriptService
-
-from conftest import complete_report
 
 
 def test_severity_critical_for_everyone_access_outage():

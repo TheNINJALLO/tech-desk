@@ -11,7 +11,7 @@ import discord
 from kingdom_tech_desk.database.repositories.drafts import DraftRepository
 from kingdom_tech_desk.database.repositories.guilds import GuildConfigRepository
 from kingdom_tech_desk.database.repositories.tickets import TicketRepository
-from kingdom_tech_desk.models.core import DraftRecord, DraftStatus, Severity, TicketRecord, TicketStatus
+from kingdom_tech_desk.models.core import DraftRecord, DraftStatus, TicketRecord, TicketStatus
 from kingdom_tech_desk.services.duplicate_detection import DuplicateDetectionService
 from kingdom_tech_desk.services.evidence import EvidenceService
 from kingdom_tech_desk.services.security import escape_markdown, ticket_channel_name

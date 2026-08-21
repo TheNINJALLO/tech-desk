@@ -14,8 +14,8 @@ from kingdom_tech_desk.constants import (
     PLATFORM_OPTIONS,
     TROUBLESHOOTING_OPTIONS,
 )
-from kingdom_tech_desk.models.core import DraftRecord, DraftStage, IssueCategory
 from kingdom_tech_desk.intake.presentation import validation_failure_message
+from kingdom_tech_desk.models.core import DraftRecord, DraftStage, IssueCategory
 from kingdom_tech_desk.services.security import escape_markdown
 from kingdom_tech_desk.tickets.creation import TicketCreationError
 

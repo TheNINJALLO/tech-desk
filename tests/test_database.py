@@ -4,6 +4,7 @@ import asyncio
 from pathlib import Path
 
 import pytest
+from conftest import complete_report
 
 from kingdom_tech_desk.database import Database, run_migrations
 from kingdom_tech_desk.database.repositories import (
@@ -13,8 +14,6 @@ from kingdom_tech_desk.database.repositories import (
     TicketRepository,
 )
 from kingdom_tech_desk.models.core import DraftStage, DraftStatus, ResolutionType, Severity, TicketStatus
-
-from conftest import complete_report
 
 
 @pytest.mark.asyncio

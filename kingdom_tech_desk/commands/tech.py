@@ -12,7 +12,7 @@ from discord.ext import commands
 
 from kingdom_tech_desk.intake.presentation import known_issues_embed
 from kingdom_tech_desk.intake.views import PublicPanelView
-from kingdom_tech_desk.models.core import DraftStatus, GuildConfig
+from kingdom_tech_desk.models.core import DraftStatus
 from kingdom_tech_desk.services.security import escape_markdown
 from kingdom_tech_desk.tickets.permissions import is_staff
 

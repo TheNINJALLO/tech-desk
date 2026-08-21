@@ -1,14 +1,14 @@
 [build-system]
-requires = ["setuptools>=75", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "kingdom-tech-desk"
-version = "1.0.0"
+version = "1.0.1"
 description = "A guided Discord technical-support ticket system for Minecraft Bedrock communities."
 readme = "README.md"
 requires-python = ">=3.12"
-license = {text = "MIT"}
+license = "MIT"
 authors = [{name = "TheN1NJ4LL0"}]
 dependencies = [
   "discord.py==2.7.1",
@@ -22,7 +22,7 @@ dependencies = [
 dev = [
   "pytest>=8,<10",
   "pytest-asyncio>=0.24,<2",
-  "ruff>=0.9,<1",
+  "ruff==0.16.3",
   "mypy>=1.13,<2",
 ]
 
